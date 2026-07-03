@@ -22,7 +22,7 @@ from linebot.v3.messaging import (
 )
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, ImageMessageContent
 
-from gemini_solver import solve_question_image
+from gemini_solver import solve_question_image, solve_question_text
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -36,7 +36,8 @@ configuration = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 HELP_TEXT = (
-    "สวัสดีค่ะ ส่งรูปคำถามเชาว์/ปัญหามาได้เลย บอทจะอ่านโจทย์และตอบคำตอบสั้นๆ ให้ทันทีค่ะ 📸🧠"
+    "สวัสดีค้าบ ส่งรูปคำถามเชาว์/ปัญหา หรือพิมพ์คำถามมาได้เลย "
+    "บอทจะอ่านโจทย์และตอบคำตอบสั้นๆ ให้ทันทีครับ 📸🧠"
 )
 
 
@@ -58,11 +59,20 @@ def webhook():
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_text(event):
+    text = (event.message.text or "").strip()
+
+    # Simple greetings / empty text -> show the help message instead of
+    # sending it to Gemini as a "question".
+    if not text or text.lower() in {"hi", "hello", "help", "สวัสดี", "start", "menu"}:
+        answer = HELP_TEXT
+    else:
+        answer = solve_question_text(text)
+
     with ApiClient(configuration) as api_client:
         MessagingApi(api_client).reply_message(
             ReplyMessageRequest(
                 reply_token=event.reply_token,
-                messages=[TextMessage(text=HELP_TEXT)],
+                messages=[TextMessage(text=answer)],
             )
         )
 
